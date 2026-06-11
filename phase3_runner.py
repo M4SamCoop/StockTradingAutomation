@@ -6,6 +6,7 @@ Usage
 -----
     python3 phase3_runner.py --tickers AAPL MSFT --date 2026-06-11
     python3 phase3_runner.py --tickers AAPL --date 2026-06-11 --no-fundamentals
+    python3 phase3_runner.py --tickers AAPL --no-log   # skip DB logging
 
 Flow
 ----
@@ -14,6 +15,7 @@ Flow
 3. Pass snapshots to SlimTradingAgentsGraph.
 4. Run one ticker at a time through the reasoning chain.
 5. Print structured decision + conviction for each ticker.
+6. Log each decision to SQLite for outcome tracking (see logger/score.py).
 """
 
 import argparse
@@ -64,6 +66,14 @@ def _parse_args():
     p.add_argument(
         "--output", default=None, metavar="FILE",
         help="Write decisions to a JSON file.",
+    )
+    p.add_argument(
+        "--no-log", action="store_true",
+        help="Skip logging decisions to the SQLite signal DB.",
+    )
+    p.add_argument(
+        "--db", default=None, metavar="FILE",
+        help="Path to signal log DB (default: ~/.tradingagents/signal_log.db).",
     )
     p.add_argument(
         "--verbose", "-v", action="store_true",
@@ -184,6 +194,34 @@ def main():
             "judge_decision": result["judge_decision"],
         }
 
+        # Log to SQLite
+        if not args.no_log:
+            try:
+                from logger.signal_log import log_signal
+                from pathlib import Path as _Path
+                entry_price = (
+                    snapshots[ticker].technical.close
+                    if snapshots[ticker].technical else None
+                )
+                db_path = _Path(args.db) if args.db else None
+                sig_id = log_signal(
+                    ticker=ticker,
+                    signal_date=date,
+                    action=action,
+                    conviction=conviction,
+                    entry_price=entry_price,
+                    judge_decision=result["judge_decision"],
+                    raw_decision=result["raw_decision"],
+                    market_report=result["market_report"],
+                    fundamentals_report=result["fundamentals_report"],
+                    sentiment_report=result["sentiment_report"],
+                    news_report=result["news_report"],
+                    db_path=db_path,
+                )
+                print(f"  [{ticker}] Logged as signal #{sig_id}")
+            except Exception as e:
+                print(f"  [{ticker}] Warning: signal logging failed — {e}")
+
     # ------------------------------------------------------------------
     # Step 5: Output
     # ------------------------------------------------------------------
@@ -204,6 +242,12 @@ def main():
         with open(out_path, "w") as f:
             json.dump(decisions, f, indent=2)
         print(f"Decisions written to {args.output}")
+
+    if not args.no_log:
+        from pathlib import Path as _Path
+        db_path = _Path(args.db) if args.db else _Path.home() / ".tradingagents" / "signal_log.db"
+        print(f"Signal log: {db_path}")
+        print("Score outcomes later with:  python3 -m logger.score")
 
 
 if __name__ == "__main__":
