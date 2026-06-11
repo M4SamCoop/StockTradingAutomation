@@ -1,0 +1,20 @@
+# Core data & analysis
+yfinance>=0.2.40
+pandas>=2.0.0
+ta>=0.11.0
+numpy>=1.26.0
+
+# TradingAgents (reasoning layer — Phase 3)
+tradingagents>=0.7.0  # requires Python 3.12+
+
+# Brokerage (Phase 5)
+# alpaca-py>=0.30.0  # uncomment when starting Phase 5
+
+# Utilities
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Phase 2 — FinBERT sentiment
+# First run downloads ProsusAI/finbert (~420MB) to HuggingFace cache
+torch>=2.0.0
+transformers>=4.40.0
